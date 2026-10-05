@@ -1,0 +1,12 @@
+{
+  "name": "ds_src_binary",
+  "properties": {
+    "type": "Binary",
+    "linkedServiceName": { "referenceName": "ls_adls", "type": "LinkedServiceReference" },
+    "parameters": { "table": { "type": "string" } },
+    "typeProperties": {
+      "location": { "type": "AzureBlobFSLocation", "fileSystem": "lake", "folderPath": "source",
+                    "fileName": { "value": "@{dataset().table}.csv", "type": "Expression" } }
+    }
+  }
+}

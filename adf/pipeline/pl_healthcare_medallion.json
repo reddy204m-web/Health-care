@@ -1,0 +1,78 @@
+{
+  "name": "pl_healthcare_medallion",
+  "properties": {
+    "parameters": {
+      "tables": { "type": "array",
+                  "defaultValue": ["patients","encounters","conditions","providers","payers","procedures"] }
+    },
+    "variables": { "run_date": { "type": "String" } },
+    "activities": [
+      {
+        "name": "SetRunDate", "type": "SetVariable",
+        "typeProperties": { "variableName": "run_date",
+                            "value": { "value": "@formatDateTime(utcnow(),'yyyy-MM-dd')", "type": "Expression" } }
+      },
+      {
+        "name": "CopyToLanding", "type": "ForEach",
+        "dependsOn": [ { "activity": "SetRunDate", "dependencyConditions": ["Succeeded"] } ],
+        "typeProperties": {
+          "items": { "value": "@pipeline().parameters.tables", "type": "Expression" },
+          "isSequential": false, "batchCount": 4,
+          "activities": [
+            {
+              "name": "CopyCsv", "type": "Copy",
+              "inputs":  [ { "referenceName": "ds_src_binary", "type": "DatasetReference",
+                             "parameters": { "table": "@item()" } } ],
+              "outputs": [ { "referenceName": "ds_landing_binary", "type": "DatasetReference",
+                             "parameters": { "table": "@item()", "run_date": "@variables('run_date')" } } ],
+              "typeProperties": {
+                "source": { "type": "BinarySource",
+                            "storeSettings": { "type": "AzureBlobFSReadSettings", "recursive": false } },
+                "sink":   { "type": "BinarySink",
+                            "storeSettings": { "type": "AzureBlobFSWriteSettings" } }
+              },
+              "policy": { "retry": 2, "retryIntervalInSeconds": 30, "timeout": "0.01:00:00" }
+            }
+          ]
+        }
+      },
+      {
+        "name": "Bronze", "type": "DatabricksNotebook",
+        "dependsOn": [ { "activity": "CopyToLanding", "dependencyConditions": ["Succeeded"] } ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "notebookPath": "/Repos/healthcare-usage/databricks/01_bronze_ingest",
+          "baseParameters": { "lake_root": "abfss://lake@<storageaccount>.dfs.core.windows.net",
+                              "run_date": "@variables('run_date')" }
+        }
+      },
+      {
+        "name": "Silver", "type": "DatabricksNotebook",
+        "dependsOn": [ { "activity": "Bronze", "dependencyConditions": ["Succeeded"] } ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "notebookPath": "/Repos/healthcare-usage/databricks/02_silver_transform",
+          "baseParameters": { "lake_root": "abfss://lake@<storageaccount>.dfs.core.windows.net" }
+        }
+      },
+      {
+        "name": "Gold", "type": "DatabricksNotebook",
+        "dependsOn": [ { "activity": "Silver", "dependencyConditions": ["Succeeded"] } ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "notebookPath": "/Repos/healthcare-usage/databricks/03_gold_model",
+          "baseParameters": { "lake_root": "abfss://lake@<storageaccount>.dfs.core.windows.net" }
+        }
+      },
+      {
+        "name": "GenAIInsights", "type": "DatabricksNotebook",
+        "dependsOn": [ { "activity": "Gold", "dependencyConditions": ["Succeeded"] } ],
+        "linkedServiceName": { "referenceName": "ls_databricks", "type": "LinkedServiceReference" },
+        "typeProperties": {
+          "notebookPath": "/Repos/healthcare-usage/databricks/04_genai_insights",
+          "baseParameters": { "lake_root": "abfss://lake@<storageaccount>.dfs.core.windows.net" }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "ls_databricks",
+  "properties": {
+    "type": "AzureDatabricks",
+    "typeProperties": {
+      "domain": "https://adb-<workspace-id>.<n>.azuredatabricks.net",
+      "accessToken": { "type": "AzureKeyVaultSecret",
+                       "store": { "referenceName": "ls_keyvault", "type": "LinkedServiceReference" },
+                       "secretName": "databricks-token" },
+      "newClusterNodeType": "Standard_DS3_v2",
+      "newClusterNumOfWorker": "1",
+      "newClusterVersion": "15.4.x-scala2.12",
+      "newClusterSparkConf": { "spark.databricks.cluster.profile": "singleNode" },
+      "newClusterCustomTags": { "project": "healthcare-usage" }
+    }
+  }
+}

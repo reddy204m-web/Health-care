@@ -1,0 +1,13 @@
+{
+  "name": "ds_landing_binary",
+  "properties": {
+    "type": "Binary",
+    "linkedServiceName": { "referenceName": "ls_adls", "type": "LinkedServiceReference" },
+    "parameters": { "table": { "type": "string" }, "run_date": { "type": "string" } },
+    "typeProperties": {
+      "location": { "type": "AzureBlobFSLocation", "fileSystem": "lake",
+                    "folderPath": { "value": "landing/@{dataset().table}/ingest_date=@{dataset().run_date}", "type": "Expression" },
+                    "fileName": { "value": "@{dataset().table}.csv", "type": "Expression" } }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+-- Relationships (Power BI model, all single-direction, many-to-one):
+--   fact_encounters[patient_id]     -> dim_patient[patient_id]
+--   fact_encounters[provider_id]    -> dim_provider[provider_id]
+--   fact_encounters[payer_id]       -> dim_payer[payer_id]
+--   fact_encounters[start_date_key] -> dim_date[date_key]
+-- Mark dim_date as the date table. Import mode is fine for synthetic data volumes.
+
+Total Encounters = COUNTROWS(fact_encounters)
+Unique Patients = DISTINCTCOUNT(fact_encounters[patient_id])
+Visits per Patient = DIVIDE([Total Encounters], [Unique Patients])
+Total Claim Cost = SUM(fact_encounters[total_claim_cost])
+Avg Cost per Encounter = DIVIDE([Total Claim Cost], [Total Encounters])
+Payer Coverage % = DIVIDE(SUM(fact_encounters[payer_coverage]), [Total Claim Cost])
+
+Inpatient Discharges =
+CALCULATE([Total Encounters], fact_encounters[encounter_class] = "inpatient")
+
+Readmissions 30d = CALCULATE(SUM(fact_encounters[readmitted_30d]))
+Readmission Rate 30d = DIVIDE([Readmissions 30d], [Inpatient Discharges])
+
+Avg LOS (days) =
+CALCULATE(AVERAGE(fact_encounters[length_of_stay_days]),
+          fact_encounters[encounter_class] = "inpatient")
+
+ER Encounters =
+CALCULATE([Total Encounters], fact_encounters[encounter_class] = "emergency")
+ER Share % = DIVIDE([ER Encounters], [Total Encounters])
+
+Cost YoY % =
+VAR prev = CALCULATE([Total Claim Cost], SAMEPERIODLASTYEAR(dim_date[date]))
+RETURN DIVIDE([Total Claim Cost] - prev, prev)
+
+Latest AI Summary =
+MAXX(TOPN(1, exec_summary, exec_summary[generated_at], DESC), exec_summary[summary])
